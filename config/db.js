@@ -1,24 +1,19 @@
-const mysql = require('mysql2');
+const { Pool } = require('pg');
 
-// Railway inyecta las variables de entorno automáticamente
-const db = mysql.createConnection({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'admin',
-  database: process.env.DB_NAME || 'novastore',
-  // Configuraciones adicionales para producción
-  connectTimeout: 60000,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
-
-db.connect(err => {
-  if (err) {
-    console.error('❌ Error conectando a MySQL:', err);
-    throw err;
+// Supabase Connection String
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
   }
-  console.log('✅ Conectado a MySQL');
 });
 
-module.exports = db;
+pool.on('connect', () => {
+  console.log('✅ Conectado a PostgreSQL (Supabase)');
+});
+
+pool.on('error', (err) => {
+  console.error('❌ Error en PostgreSQL:', err);
+});
+
+module.exports = pool;

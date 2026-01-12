@@ -14,35 +14,40 @@ router.get('/', isAuth, (req, res) => {
 });
 
 // Agregar producto
-router.post('/add', isAuth, (req, res) => {
+router.post('/add', isAuth, async (req, res) => {
   const { productId, cantidad } = req.body;
 
   if (!req.session.cart) req.session.cart = [];
 
-  db.query(
-    'SELECT id, nombre, precio FROM products WHERE id = ?',
-    [productId],
-    (err, result) => {
-      if (err || result.length === 0)
-        return res.status(404).send('Producto no existe');
+  try {
+    const result = await db.query(
+      'SELECT id, nombre, precio FROM products WHERE id = $1',
+      [productId]
+    );
 
-      const prod = result[0];
-      const item = req.session.cart.find(p => p.productId === productId);
-
-      if (item) {
-        item.cantidad += cantidad;
-      } else {
-        req.session.cart.push({
-          productId: prod.id,
-          nombre: prod.nombre,
-          precio: prod.precio,
-          cantidad
-        });
-      }
-
-      res.json(req.session.cart);
+    if (result.rows.length === 0) {
+      return res.status(404).send('Producto no existe');
     }
-  );
+
+    const prod = result.rows[0];
+    const item = req.session.cart.find(p => p.productId === productId);
+
+    if (item) {
+      item.cantidad += cantidad;
+    } else {
+      req.session.cart.push({
+        productId: prod.id,
+        nombre: prod.nombre,
+        precio: parseFloat(prod.precio),
+        cantidad
+      });
+    }
+
+    res.json(req.session.cart);
+  } catch (err) {
+    console.error('Error agregando al carrito:', err);
+    res.status(500).send('Error');
+  }
 });
 
 // Eliminar producto

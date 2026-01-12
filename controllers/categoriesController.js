@@ -1,8 +1,11 @@
 const db = require('../config/db');
 
-exports.getCategories = (req, res) => {
-  db.query('SELECT * FROM categories', (err, results) => {
-    if (err) return res.status(500).send('Error categorías');
-    res.json(results);
-  });
+exports.getCategories = async (req, res) => {
+  try {
+    const result = await db.query('SELECT * FROM categories');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error obteniendo categorías:', err);
+    res.status(500).send('Error categorías');
+  }
 };

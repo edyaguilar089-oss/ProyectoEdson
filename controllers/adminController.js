@@ -2,26 +2,27 @@ const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 
 // 1. LEER USUARIOS (GET)
-exports.getUsers = (req, res) => {
-    const { rol } = req.query; 
-    let sql = 'SELECT id, nombre, email, rol FROM users';
-    let params = [];
+exports.getUsers = async (req, res) => {
+    const { rol } = req.query;
+    
+    try {
+        let sql = 'SELECT id, nombre, email, rol FROM users';
+        let params = [];
 
-    if (rol) {
-        sql += ' WHERE rol = ?';
-        params.push(rol);
-    }
-
-    db.query(sql, params, (err, results) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).send('Error DB');
+        if (rol) {
+            sql += ' WHERE rol = $1';
+            params.push(rol);
         }
-        res.json(results);
-    });
+
+        const result = await db.query(sql, params);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error obteniendo usuarios:', err);
+        res.status(500).send('Error DB');
+    }
 };
 
-// 2. CREAR USUARIO (POST) <--- ¡ESTA ES LA QUE PROBABLEMENTE TE FALTA!
+// 2. CREAR USUARIO (POST)
 exports.createUser = async (req, res) => {
     const { nombre, email, password, rol } = req.body;
 
@@ -31,19 +32,16 @@ exports.createUser = async (req, res) => {
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        const sql = 'INSERT INTO users (nombre, email, password, rol) VALUES (?, ?, ?, ?)';
+        const sql = 'INSERT INTO users (nombre, email, password, rol) VALUES ($1, $2, $3, $4) RETURNING id';
         
-        db.query(sql, [nombre, email, hashedPassword, rol], (err, result) => {
-            if (err) {
-                console.error(err);
-                if (err.code === 'ER_DUP_ENTRY') return res.status(400).send('Correo duplicado');
-                return res.status(500).send('Error al crear usuario');
-            }
-            res.status(201).send('Usuario creado');
-        });
+        const result = await db.query(sql, [nombre, email, hashedPassword, rol]);
+        res.status(201).json({ msg: 'Usuario creado', userId: result.rows[0].id });
     } catch (error) {
-        console.error(error);
-        res.status(500).send('Error servidor');
+        console.error('Error creando usuario:', error);
+        if (error.code === '23505') { // Duplicate key
+            return res.status(400).send('Correo duplicado');
+        }
+        res.status(500).send('Error al crear usuario');
     }
 };
 
@@ -58,79 +56,76 @@ exports.updateUser = async (req, res) => {
 
         if (password && password.trim() !== '') {
             const hashedPassword = await bcrypt.hash(password, 10);
-            sql = 'UPDATE users SET nombre = ?, email = ?, password = ?, rol = ? WHERE id = ?';
+            sql = 'UPDATE users SET nombre = $1, email = $2, password = $3, rol = $4 WHERE id = $5';
             params = [nombre, email, hashedPassword, rol, id];
         } else {
-            sql = 'UPDATE users SET nombre = ?, email = ?, rol = ? WHERE id = ?';
+            sql = 'UPDATE users SET nombre = $1, email = $2, rol = $3 WHERE id = $4';
             params = [nombre, email, rol, id];
         }
 
-        db.query(sql, params, (err, result) => {
-            if (err) return res.status(500).send('Error al actualizar');
-            res.send('Usuario actualizado');
-        });
+        await db.query(sql, params);
+        res.send('Usuario actualizado');
     } catch (error) {
-        console.error(error);
-        res.status(500).send('Error en servidor');
+        console.error('Error actualizando usuario:', error);
+        res.status(500).send('Error al actualizar');
     }
 };
 
 // 4. ELIMINAR USUARIO (DELETE)
-exports.deleteUser = (req, res) => {
-    db.query('DELETE FROM users WHERE id = ?', [req.params.id], (err, result) => {
-        if(err) return res.status(500).send('Error al eliminar');
+exports.deleteUser = async (req, res) => {
+    try {
+        await db.query('DELETE FROM users WHERE id = $1', [req.params.id]);
         res.sendStatus(200);
-    });
+    } catch (err) {
+        console.error('Error eliminando usuario:', err);
+        res.status(500).send('Error al eliminar');
+    }
 };
 
-// --- 5. REPORTE DE VENTAS (NUEVO) ---
-exports.getSalesReport = (req, res) => {
-    // Consulta 1: Historial de ventas detallado (Tabla)
-    const sqlVentas = `
-        SELECT 
-            o.id as folio,
-            DATE_FORMAT(o.fecha, '%d/%m/%Y %H:%i') as fecha,
-            p.nombre as producto,
-            oi.cantidad,
-            p.precio,
-            (oi.cantidad * p.precio) as total,
-            u.email as cliente
-        FROM order_items oi
-        JOIN orders o ON oi.order_id = o.id
-        JOIN products p ON oi.product_id = p.id
-        JOIN users u ON o.user_id = u.id
-        ORDER BY o.fecha DESC
-    `;
+// 5. REPORTE DE VENTAS
+exports.getSalesReport = async (req, res) => {
+    try {
+        // Historial de ventas (PostgreSQL usa TO_CHAR en lugar de DATE_FORMAT)
+        const sqlVentas = `
+            SELECT 
+                o.id as folio,
+                TO_CHAR(o.fecha, 'DD/MM/YYYY HH24:MI') as fecha,
+                p.nombre as producto,
+                oi.cantidad,
+                p.precio,
+                (oi.cantidad * p.precio) as total,
+                u.email as cliente
+            FROM order_items oi
+            JOIN orders o ON oi.order_id = o.id
+            JOIN products p ON oi.product_id = p.id
+            JOIN users u ON o.user_id = u.id
+            ORDER BY o.fecha DESC
+        `;
 
-    // Consulta 2: Ranking (Más y Menos vendido)
-    const sqlRanking = `
-        SELECT p.nombre, SUM(oi.cantidad) as total_vendido
-        FROM order_items oi
-        JOIN products p ON oi.product_id = p.id
-        GROUP BY p.id
-        ORDER BY total_vendido DESC
-    `;
+        // Ranking de productos
+        const sqlRanking = `
+            SELECT p.nombre, SUM(oi.cantidad) as total_vendido
+            FROM order_items oi
+            JOIN products p ON oi.product_id = p.id
+            GROUP BY p.id, p.nombre
+            ORDER BY total_vendido DESC
+        `;
 
-    db.query(sqlVentas, (err, ventas) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).send('Error obteniendo ventas');
-        }
+        const ventasResult = await db.query(sqlVentas);
+        const rankingResult = await db.query(sqlRanking);
 
-        db.query(sqlRanking, (err2, ranking) => {
-            if (err2) {
-                console.error(err2);
-                return res.status(500).send('Error obteniendo ranking');
-            }
+        const ventas = ventasResult.rows;
+        const ranking = rankingResult.rows;
 
-            // Identificar extremos
-            const masVendido = ranking.length > 0 ? ranking[0] : null;
-            const menosVendido = ranking.length > 0 ? ranking[ranking.length - 1] : null;
+        const masVendido = ranking.length > 0 ? ranking[0] : null;
+        const menosVendido = ranking.length > 0 ? ranking[ranking.length - 1] : null;
 
-            res.json({
-                historial: ventas,
-                estadisticas: { masVendido, menosVendido }
-            });
+        res.json({
+            historial: ventas,
+            estadisticas: { masVendido, menosVendido }
         });
-    });
+    } catch (err) {
+        console.error('Error en reporte de ventas:', err);
+        res.status(500).send('Error obteniendo reporte');
+    }
 };

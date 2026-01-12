@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel Vendedor | Nova Store</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../css/styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+
+    <nav class="navbar scrolled">
+        <div class="nav-content">
+            <div class="logo">NOVA <span style="color:var(--secondary);">VENDEDOR</span></div>
+            <ul class="nav-links">
+                <li><span style="color:#94a3b8; font-size:0.9em;">Perfil Vendedor</span></li>
+                <li><a href="/auth/logout" class="btn-nav">Salir</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-container"> <div class="admin-header">
+            <h2>Gestión de Mis Productos</h2>
+            <p>Visualiza tu catálogo o gestiona el inventario detallado.</p>
+        </div>
+
+        <div class="admin-tabs">
+            <button class="tab-btn active" onclick="cargarVista('visual')">
+                <i class="fa-solid fa-grid-2"></i> Catálogo Visual
+            </button>
+            <button class="tab-btn" onclick="cargarVista('tabla')">
+                <i class="fa-solid fa-list"></i> Gestión (Tabla CRUD)
+            </button>
+        </div>
+
+        <div class="table-container" style="background: transparent; padding: 0;">
+            
+            <div id="vista-visual" style="display: block;">
+                <div class="catalog-grid" id="grid-cards">
+                    </div>
+            </div>
+
+            <div id="vista-tabla" style="display: none; background: #1e293b; padding: 1.5rem; border-radius: 12px;">
+                
+
+
+
+
+    <div id="action-bar" class="action-bar" style="margin-bottom: 2rem;">
+    <div style="background:#334155; padding:15px; border-radius:8px; display:flex; gap:10px; align-items:flex-end; flex-wrap: wrap;">
+        
+        <div style="display:flex; flex-direction:column; gap:5px;">
+            <input id="pNombre" placeholder="Nombre Producto" style="padding:8px; border-radius:4px; border:none;">
+            <input id="pDesc" placeholder="Descripción" style="padding:8px; border-radius:4px; border:none;">
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:5px;">
+            <input id="pPrecio" type="number" placeholder="$ Precio" style="width:80px; padding:8px; border-radius:4px; border:none;">
+            <input id="pStock" type="number" placeholder="Stock" style="width:80px; padding:8px; border-radius:4px; border:none;">
+        </div>
+        
+        <div style="display:flex; flex-direction:column; gap:5px;">
+        <select id="pCategoria" style="padding:8px; border-radius:4px; border:none; height: 35px;">
+            <option value="">Selecciona Categoría...</option>
+            <option value="1">Celulares</option>
+            <option value="2">Auriculares</option>
+            <option value="3">Smartphones</option>
+            <option value="4">Computadoras</option>
+            <option value="5">Accesorios</option>
+            <option value="6">Gaming</option>
+            <option value="7">Smart Home</option>
+        </select>
+    </div>
+
+
+        <div style="display:flex; flex-direction:column;">
+            <label style="color:white; font-size:0.8em; margin-bottom:2px;">Fotos (Max 5):</label>
+            <input type="file" id="pFotos" multiple accept="image/*" style="color:white; font-size:0.9em;">
+        </div>
+
+        <button class="btn-primary" onclick="crearProductoConFotos()">+ Publicar</button>
+        
+        <button id="btnUpdateP" class="btn-primary" onclick="actualizarProducto()" style="display:none; background-color: #f59e0b; margin-left:5px;">Actualizar Datos</button>
+        <button id="btnCancelP" class="btn-delete" onclick="limpiarFormulario()" style="display:none; margin-left:5px;">Cancelar</button>
+    </div>
+    </div>
+
+
+
+
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Img</th>
+                            <th>Producto</th>
+                            <th>Descripción</th>
+                            <th>Precio</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        </tbody>
+                </table>
+            </div>
+
+        </div>
+    </section>
+
+    <script>
+        // --- VARIABLES GLOBALES ---
+    let vistaActual = 'visual';
+    let idSeleccionado = null;
+
+    // Cargar vista inicial al abrir la página
+    document.addEventListener('DOMContentLoaded', () => {
+        cargarVista('visual');
+    });
+
+    // --- ROUTER DE VISTAS ---
+    async function cargarVista(vista) {
+        vistaActual = vista;
+        limpiarFormulario(); // Limpia errores previos
+
+        // 1. Manejo de Pestañas (Visual vs Tabla)
+        const visualDiv = document.getElementById('vista-visual');
+        const tablaDiv = document.getElementById('vista-tabla');
+        const tabs = document.querySelectorAll('.tab-btn');
+
+        // Resetear clases activas
+        tabs.forEach(t => t.classList.remove('active'));
+
+        if (vista === 'visual') {
+            visualDiv.style.display = 'block';
+            tablaDiv.style.display = 'none';
+            if(tabs[0]) tabs[0].classList.add('active');
+        } else {
+            visualDiv.style.display = 'none';
+            tablaDiv.style.display = 'block';
+            if(tabs[1]) tabs[1].classList.add('active');
+        }
+
+        // 2. Obtener Datos del Backend
+        try {
+            const res = await fetch('/products');
+            const products = await res.json();
+
+            // Renderizar según la vista
+            if (vista === 'visual') {
+                renderCards(products);
+            } else {
+                renderTable(products); // <--- AHORA SÍ EXISTE ESTA FUNCIÓN
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Error al cargar productos: " + error.message);
+        }
+    }
+
+    // --- RENDERIZADO VISUAL (TARJETAS) ---
+    function renderCards(products) {
+        const container = document.getElementById('grid-cards');
+        container.innerHTML = '';
+
+        if (products.length === 0) {
+            container.innerHTML = '<p style="color:white; padding:20px;">No hay productos en el catálogo.</p>';
+            return;
+        }
+
+        products.forEach(p => {
+            // Usamos la primera imagen de la galería o la default
+            const imagen = (p.galeria && p.galeria.length > 0) ? p.galeria[0] : p.imagen;
+            
+            container.innerHTML += `
+                <div class="product-card">
+                    <div class="card-img-top">
+                        <img src="${imagen}" alt="${p.nombre}" style="width:100%; height:100%; object-fit:cover;">
+                    </div>
+                    <div class="card-body">
+                        <h3 class="card-title">${p.nombre}</h3>
+                        <p class="card-text">${p.descripcion || 'Sin descripción'}</p>
+                        <p style="font-size:0.8em; color:#ccc;">Stock: ${p.stock}</p>
+                        <div class="card-footer">
+                            <span class="price-tag">$${p.precio}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    // --- RENDERIZADO TABLA (CON STOCK) ---
+    function renderTable(products) {
+        const tbody = document.getElementById('table-body');
+        // Actualizamos el encabezado para asegurar que tenga la columna Stock
+        const thead = document.querySelector('.data-table thead');
+        if(thead) {
+            thead.innerHTML = `
+                <tr>
+                    <th>ID</th>
+                    <th>Img</th>
+                    <th>Producto</th>
+                    <th>Descripción</th>
+                    <th>Precio</th>
+                    <th>Stock</th> <th>Acciones</th>
+                </tr>
+            `;
+        }
+
+        tbody.innerHTML = '';
+
+        if (products.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" align="center">Sin productos</td></tr>';
+            return;
+        }
+
+        products.forEach(p => {
+            const prodStr = JSON.stringify(p).replace(/'/g, "&#39;");
+            
+            // Estilo para stock bajo
+            const stockStyle = p.stock < 5 ? 'color:#ef4444; font-weight:bold;' : 'color:#10b981;';
+            const imagen = (p.galeria && p.galeria.length > 0) ? p.galeria[0] : p.imagen;
+
+            tbody.innerHTML += `
+                <tr onclick='seleccionarProducto(${prodStr})' style="cursor: pointer;" title="Clic para editar">
+                    <td>#${p.id}</td>
+                    <td>
+                        <div style="width:40px; height:40px; overflow:hidden; border-radius:4px; background:#334155;">
+                            <img src="${imagen}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/img/default.png'">
+                        </div>
+                    </td>
+                    <td><strong>${p.nombre}</strong></td>
+                    <td>${p.descripcion || '-'}</td>
+                    <td style="color:var(--secondary); font-weight:bold;">$${p.precio}</td>
+                    <td style="${stockStyle}">${p.stock}</td>
+                    <td>
+                        <button class="btn-delete" onclick="event.stopPropagation(); eliminarProducto(${p.id})">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    // --- LÓGICA DEL FORMULARIO ---
+
+    function seleccionarProducto(prod) {
+        idSeleccionado = prod.id;
+        document.getElementById('pNombre').value = prod.nombre;
+        document.getElementById('pDesc').value = prod.descripcion;
+        document.getElementById('pPrecio').value = prod.precio;
+        document.getElementById('pStock').value = prod.stock;
+
+        document.getElementById('btnUpdateP').style.display = 'inline-block';
+        document.getElementById('btnCancelP').style.display = 'inline-block';
+    }
+
+    function limpiarFormulario() {
+        idSeleccionado = null;
+        if(document.getElementById('pNombre')) document.getElementById('pNombre').value = '';
+        if(document.getElementById('pDesc')) document.getElementById('pDesc').value = '';
+        if(document.getElementById('pPrecio')) document.getElementById('pPrecio').value = '';
+        if(document.getElementById('pStock')) document.getElementById('pStock').value = '';
+        if(document.getElementById('pFotos')) document.getElementById('pFotos').value = '';
+        
+        if(document.getElementById('btnUpdateP')) document.getElementById('btnUpdateP').style.display = 'none';
+        if(document.getElementById('btnCancelP')) document.getElementById('btnCancelP').style.display = 'none';
+    }
+
+    // --- OPERACIONES CRUD ---
+
+    // 1. CREAR (Con Fotos y Stock)
+   async function crearProductoConFotos() {
+    // 1. OBTENER ELEMENTOS
+    const nombre = document.getElementById('pNombre').value;
+    const descripcion = document.getElementById('pDesc').value;
+    const precio = document.getElementById('pPrecio').value;
+    const stock = document.getElementById('pStock').value;
+    
+    // Validamos si existe el select de categoría antes de leer su valor
+    const catElement = document.getElementById('pCategoria');
+    const categoria = catElement ? catElement.value : null; 
+    
+    const fileInput = document.getElementById('pFotos');
+    
+    // Referencia al botón para bloquearlo
+    // NOTA: Asegúrate de que tu botón en el HTML no tenga ID o usa querySelector
+    // Si usaste mi código anterior, el botón llama a la función onclick.
+    // Vamos a buscar el botón que contiene el texto "+ Publicar" o usa event.target si lo pasas
+    const btnPublicar = document.querySelector('button[onclick="crearProductoConFotos()"]');
+
+    // 2. VALIDACIONES
+    if(!nombre || !precio) return alert("Nombre y Precio obligatorios");
+    if(catElement && !categoria) return alert("Debes seleccionar una categoría");
+
+    // 3. FEEDBACK VISUAL (Evita que des mil clics)
+    if(btnPublicar) {
+        btnPublicar.disabled = true;
+        btnPublicar.textContent = "⏳ Guardando...";
+    }
+
+    // 4. PREPARAR DATOS
+    const formData = new FormData();
+    formData.append('nombre', nombre);
+    formData.append('descripcion', descripcion);
+    formData.append('precio', precio);
+    formData.append('stock', stock);
+    if(categoria) formData.append('categoria', categoria);
+
+    for (let i = 0; i < fileInput.files.length; i++) {
+        formData.append('imagenes', fileInput.files[i]);
+    }
+
+    try {
+        console.log("Enviando petición al servidor..."); // Log para depurar
+        
+        const res = await fetch('/products', { method: 'POST', body: formData });
+
+        if(res.ok) {
+            // 5. ÉXITO (El alert va PRIMERO para asegurar que lo veas)
+            alert("✅ Producto creado exitosamente");
+            
+            // Recargamos la vista
+            if(typeof cargarVista === 'function') {
+                // Verificamos si vistaActual existe, si no, usamos 'productos' por defecto
+                const vista = (typeof vistaActual !== 'undefined') ? vistaActual : 'productos';
+                cargarVista(vista);
+            } else {
+                location.reload(); // Si falla cargarVista, recargamos la página completa
+            }
+        } else {
+            const errorTxt = await res.text();
+            alert("❌ Error del servidor: " + errorTxt);
+        }
+    } catch (error) {
+        console.error("Error en el frontend:", error);
+        alert("❌ Error de conexión (Revisa la consola con F12)");
+    } finally {
+        // 6. RESTAURAR BOTÓN (Pase lo que pase, reactivamos el botón)
+        if(btnPublicar) {
+            btnPublicar.disabled = false;
+            btnPublicar.textContent = "+ Publicar";
+        }
+    }
+}
+
+
+
+    // 2. ACTUALIZAR (Datos básicos)
+    async function actualizarProducto() {
+        if(!idSeleccionado) return alert("Selecciona un producto");
+        
+        const nombre = document.getElementById('pNombre').value;
+        const descripcion = document.getElementById('pDesc').value;
+        const precio = document.getElementById('pPrecio').value;
+        const stock = document.getElementById('pStock').value;
+
+        // Nota: Por simplicidad, aquí usamos JSON y no actualizamos fotos en el UPDATE
+        await fetch('/products/' + idSeleccionado, {
+            method: 'PUT',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ nombre, descripcion, precio, stock })
+        });
+        
+        limpiarFormulario();
+        cargarVista('tabla');
+    }
+
+    // 3. ELIMINAR
+    async function eliminarProducto(id) {
+        if(!confirm('¿Eliminar producto?')) return;
+        await fetch('/products/' + id, { method: 'DELETE' });
+        cargarVista('tabla');
+    }
+    </script>
+</body>
+</html>

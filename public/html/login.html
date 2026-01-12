@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Login | Nova Store</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+
+<nav class="navbar scrolled">
+    <div class="nav-content">
+        <div class="logo">NOVA STORE</div>
+        <ul class="nav-links">
+            <li><a href="/">Inicio</a></li>
+        </ul>
+    </div>
+</nav>
+
+<section class="services-section" style="min-height:100vh; display:flex; align-items:center; justify-content:center;">
+    <div class="form-container">
+        <h2>Iniciar Sesión</h2>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label>Correo electrónico</label>
+                <input type="email" name="email" placeholder="correo@ejemplo.com" required>
+            </div>
+
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input type="password" name="password" placeholder="••••••••" required>
+            </div>
+
+            <button class="form-btn">Entrar</button>
+        </form>
+
+        <div class="form-footer">
+            ¿No tienes cuenta?
+            <a href="register.html">Regístrate</a>
+        </div>
+    </div>
+</section>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+
+    const res = await fetch('/auth/login', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(data)
+    });
+
+    if (res.redirected) {
+        window.location.href = res.url;
+    } else {
+        alert('Credenciales incorrectas');
+    }
+});
+</script>
+
+</body>
+</html>

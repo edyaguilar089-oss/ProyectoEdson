@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Catálogo | Nova Store</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../css/styles.css">
+    <style>
+        /* Estilos adicionales para mejorar el catálogo */
+        .category-header {
+            background: linear-gradient(135deg, var(--card-bg), #1e1b4b);
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .category-header h3 {
+            margin: 0;
+            color: var(--secondary);
+            font-size: 1.5rem;
+        }
+
+        .sidebar li {
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .sidebar li.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--gray-text);
+        }
+
+        .empty-state h3 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--gray-text);
+            font-size: 1.2rem;
+        }
+
+        .card .btn-primary {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<div id="productModal" class="modal-overlay" onclick="cerrarModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="cerrarModal()">&times;</button>
+        
+        <div class="modal-body">
+            <!-- Galería de Imágenes -->
+            <div class="modal-gallery">
+                <div class="modal-main-image">
+                    <img id="modalMainImg" src="" alt="Producto">
+                    <button class="modal-arrow modal-prev" id="modalPrev" onclick="cambiarImagenModal(-1)">&#10094;</button>
+                    <button class="modal-arrow modal-next" id="modalNext" onclick="cambiarImagenModal(1)">&#10095;</button>
+                </div>
+                
+                <div class="modal-thumbnails" id="modalThumbnails"></div>
+            </div>
+            
+            <!-- Información del Producto -->
+            <div class="modal-info">
+                <h2 id="modalTitle" class="modal-product-title">Nombre del Producto</h2>
+                
+                <div class="modal-price-section">
+                    <span class="modal-price" id="modalPrice">$0.00</span>
+                    <span class="modal-stock" id="modalStock">Stock: 0</span>
+                </div>
+                
+                <div class="modal-description">
+                    <h3>Descripción</h3>
+                    <p id="modalDescription">Descripción del producto...</p>
+                </div>
+                
+                <div class="modal-actions">
+                    <button class="modal-btn-cart" onclick="agregarDesdeModal()">
+                        🛒 Agregar al Carrito
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<body>
+
+<nav class="navbar scrolled">
+    <div class="nav-content">
+        <div class="logo">NOVA STORE</div>
+        <ul class="nav-links">
+            <li>
+             <a href="/html/cart.html">🛒 Carrito (<span id="cartCount">0</span>)</a>
+            </li>
+            <li><a href="/">Inicio</a></li>
+            <li><a href="/html/ratings.html">⭐ Calificar Compras</a></li>
+            <li><a href="/auth/logout">Salir</a></li>
+        </ul>
+    </div>
+</nav>
+
+<section class="services-section">
+    <div class="section-header">
+        <h2>Catálogo de Productos</h2>
+        <p>Explora nuestros productos disponibles</p>
+    </div>
+
+    <div class="catalog-layout">
+        <!-- Sidebar de Categorías -->
+        <aside class="sidebar">
+            <h3>Categorías</h3>
+            <ul id="categoryList">
+                <li class="active" onclick="cargarDestacados()">
+                    🏠 Destacados
+                </li>
+            </ul>
+        </aside>
+
+        <!-- Contenido Principal -->
+        <div class="catalog-content">
+            <div id="categoryHeader" class="category-header" style="display:none;">
+                <h3 id="categoryTitle">Todos los productos</h3>
+            </div>
+            <div id="loadingIndicator" class="loading">
+                Cargando productos...
+            </div>
+            <div id="products" class="cards-grid"></div>
+        </div>
+    </div>
+</section>
+
+<script>
+// Variables globales
+let categoriaActual = null;
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', () => {
+    cargarCategorias();
+    cargarDestacados();
+});
+
+async function actualizarContador() {
+  const res = await fetch('/cart');
+  if (!res.ok) return;
+  const cart = await res.json();
+  document.getElementById('cartCount').textContent =
+    cart.reduce((s,p)=>s+p.cantidad,0);
+}
+
+actualizarContador();
+
+
+
+// Cargar categorías desde la BD
+async function cargarCategorias() {
+    try {
+        const res = await fetch('/categories');
+        const categorias = await res.json();
+        const list = document.getElementById('categoryList');
+
+        categorias.forEach(c => {
+            const li = document.createElement('li');
+            li.textContent = c.nombre;
+            li.setAttribute('data-id', c.id);
+            li.onclick = () => cargarPorCategoria(c.id, c.nombre);
+            list.appendChild(li);
+        });
+    } catch (error) {
+        console.error('Error cargando categorías:', error);
+    }
+}
+
+// Cargar productos destacados (por defecto)
+async function cargarDestacados() {
+    categoriaActual = null;
+    activarCategoria(null);
+    document.getElementById('categoryHeader').style.display = 'none';
+    
+    try {
+        mostrarCargando(true);
+        const res = await fetch('/products/featured');
+        const products = await res.json();
+        renderProductos(products);
+    } catch (error) {
+        console.error('Error cargando destacados:', error);
+        mostrarError();
+    } finally {
+        mostrarCargando(false);
+    }
+}
+
+// Cargar productos por categoría
+async function cargarPorCategoria(id, nombre) {
+    categoriaActual = id;
+    activarCategoria(id);
+    
+    // Mostrar header de categoría
+    const header = document.getElementById('categoryHeader');
+    const title = document.getElementById('categoryTitle');
+    title.textContent = nombre;
+    header.style.display = 'block';
+
+    try {
+        mostrarCargando(true);
+        const res = await fetch(`/products/category/${id}`);
+        const products = await res.json();
+        renderProductos(products);
+    } catch (error) {
+        console.error('Error cargando productos:', error);
+        mostrarError();
+    } finally {
+        mostrarCargando(false);
+    }
+}
+
+// Renderizar productos en el grid
+
+
+function renderProductos(products) {
+    const contenedor = document.getElementById('products');
+    contenedor.innerHTML = '';
+
+    if (products.length === 0) {
+        contenedor.innerHTML = '<div class="empty-state">No hay productos</div>';
+        return;
+    }
+
+    products.forEach(p => {
+        const imagenes = p.galeria && p.galeria.length > 0 ? p.galeria : [p.imagen];
+        
+        let slidesHTML = '';
+        imagenes.forEach((img, index) => {
+            const activeClass = index === 0 ? 'active' : '';
+            slidesHTML += `<img src="${img}" class="carousel-slide ${activeClass}" id="img-${p.id}-${index}">`;
+        });
+
+        const botonesHTML = imagenes.length > 1 ? `
+            <a class="prev" onclick="moverSlide(event, ${p.id}, -1)">&#10094;</a>
+            <a class="next" onclick="moverSlide(event, ${p.id}, 1)">&#10095;</a>
+        ` : '';
+
+        // ========== GENERAR ESTRELLAS ==========
+        const rating = parseFloat(p.rating_promedio || 0);
+        const totalRatings = p.total_ratings || 0;
+        let estrellas = '';
+        
+        for (let i = 1; i <= 5; i++) {
+            if (i <= Math.floor(rating)) {
+                estrellas += '<i class="fa-solid fa-star" style="color:#fbbf24;"></i>';
+            } else if (i === Math.ceil(rating) && rating % 1 !== 0) {
+                estrellas += '<i class="fa-solid fa-star-half-stroke" style="color:#fbbf24;"></i>';
+            } else {
+                estrellas += '<i class="fa-regular fa-star" style="color:#475569;"></i>';
+            }
+        }
+
+        const ratingHTML = totalRatings > 0 
+            ? `<div style="margin:0.5rem 0; font-size:0.9em;">
+                ${estrellas}
+                <span style="color:var(--gray-text); margin-left:5px;">(${totalRatings})</span>
+               </div>`
+            : '<div style="margin:0.5rem 0; font-size:0.9em; color:var(--gray-text);">Sin calificaciones</div>';
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.cursor = 'pointer';
+        
+        card.onclick = (e) => {
+            if (e.target.classList.contains('prev') || 
+                e.target.classList.contains('next') ||
+                e.target.classList.contains('btn-primary') || 
+                e.target.closest('.btn-primary')) {
+                return;
+            }
+            abrirModal(p);
+        };
+
+        card.innerHTML = `
+            <div class="carousel-container" id="carousel-${p.id}" data-index="0" data-total="${imagenes.length}">
+                ${slidesHTML}
+                ${botonesHTML}
+            </div>
+            <div class="card-body">
+                <h3 class="card-title">${p.nombre}</h3>
+                ${ratingHTML}
+                <p class="card-text">${p.descripcion || ''}</p>
+                <p style="color:#aaa; font-size:0.8em;">Stock: ${p.stock}</p>
+                <div class="card-footer">
+                    <span class="price-tag">$${parseFloat(p.precio).toLocaleString()}</span>
+                </div>
+                <button class="btn-primary" onclick="event.stopPropagation(); comprar(${p.id})">🛒 Agregar</button>
+            </div>
+        `;
+        contenedor.appendChild(card);
+    });
+}
+
+// FUNCIÓN PARA MOVER LAS FLECHAS
+function moverSlide(event, prodId, direction) {
+    // Evitar que al dar clic a la flecha se abra el producto (si tuvieras enlace)
+    event.stopPropagation();
+
+    const container = document.getElementById(`carousel-${prodId}`);
+    let currentIndex = parseInt(container.getAttribute('data-index'));
+    const total = parseInt(container.getAttribute('data-total'));
+
+    // Ocultar imagen actual
+    document.getElementById(`img-${prodId}-${currentIndex}`).classList.remove('active');
+
+    // Calcular nuevo índice
+    currentIndex += direction;
+    if (currentIndex >= total) currentIndex = 0; // Vuelta al inicio
+    if (currentIndex < 0) currentIndex = total - 1; // Vuelta al final
+
+    // Mostrar nueva imagen
+    document.getElementById(`img-${prodId}-${currentIndex}`).classList.add('active');
+    
+    // Guardar nuevo índice
+    container.setAttribute('data-index', currentIndex);
+}
+
+
+
+// Activar categoría seleccionada visualmente
+function activarCategoria(id) {
+    const items = document.querySelectorAll('#categoryList li');
+    items.forEach(item => {
+        item.classList.remove('active');
+        if (!id && item.textContent.includes('Destacados')) {
+            item.classList.add('active');
+        } else if (item.getAttribute('data-id') == id) {
+            item.classList.add('active');
+        }
+    });
+}
+
+// Mostrar/ocultar indicador de carga
+function mostrarCargando(mostrar) {
+    const loading = document.getElementById('loadingIndicator');
+    loading.style.display = mostrar ? 'block' : 'none';
+}
+
+// Mostrar error
+function mostrarError() {
+    const contenedor = document.getElementById('products');
+    contenedor.innerHTML = `
+        <div class="empty-state">
+            <h3>⚠️ Error</h3>
+            <p>No se pudieron cargar los productos. Intenta de nuevo.</p>
+        </div>
+    `;
+}
+
+async function comprar(productId) {
+  const res = await fetch('/cart/add', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ productId, cantidad: 1 })
+  });
+
+  if (res.ok) {
+    alert('🛒 Producto agregado al carrito');
+    actualizarContador();
+  }
+}
+
+// Variables globales del modal
+let productoActual = null;
+let imagenesActuales = [];
+let indiceImagenActual = 0;
+
+// Abrir Modal
+function abrirModal(producto) {
+    productoActual = producto;
+    imagenesActuales = producto.galeria && producto.galeria.length > 0 
+        ? producto.galeria 
+        : [producto.imagen];
+    indiceImagenActual = 0;
+
+    document.getElementById('modalTitle').textContent = producto.nombre;
+    document.getElementById('modalPrice').textContent = '$' + parseFloat(producto.precio).toLocaleString();
+    document.getElementById('modalDescription').textContent = producto.descripcion || 'Sin descripción disponible';
+    
+    const rating = parseFloat(producto.rating_promedio || 0);
+const totalRatings = producto.total_ratings || 0;
+let estrellasHTML = '';
+
+for (let i = 1; i <= 5; i++) {
+    if (i <= Math.floor(rating)) {
+        estrellasHTML += '<i class="fa-solid fa-star" style="color:#fbbf24;"></i>';
+    } else if (i === Math.ceil(rating) && rating % 1 !== 0) {
+        estrellasHTML += '<i class="fa-solid fa-star-half-stroke" style="color:#fbbf24;"></i>';
+    } else {
+        estrellasHTML += '<i class="fa-regular fa-star" style="color:#475569;"></i>';
+    }
+}
+
+const ratingInfo = totalRatings > 0 
+    ? `<div style="margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem;">
+        ${estrellasHTML}
+        <span style="color:var(--gray-text);">(${totalRatings} calificaciones)</span>
+       </div>`
+    : '<div style="margin-bottom:1rem; color:var(--gray-text);">Sin calificaciones aún</div>';
+
+
+
+    const stockEl = document.getElementById('modalStock');
+    stockEl.textContent = `Stock: ${producto.stock}`;
+    stockEl.className = 'modal-stock';
+    if (producto.stock < 5) {
+        stockEl.classList.add('low');
+    }
+
+    document.getElementById('modalMainImg').src = imagenesActuales[0];
+
+    const thumbnailsContainer = document.getElementById('modalThumbnails');
+    thumbnailsContainer.innerHTML = '';
+    
+    imagenesActuales.forEach((img, index) => {
+        const thumb = document.createElement('div');
+        thumb.className = 'modal-thumbnail' + (index === 0 ? ' active' : '');
+        thumb.innerHTML = `<img src="${img}" alt="Imagen ${index + 1}">`;
+        thumb.onclick = () => seleccionarImagen(index);
+        thumbnailsContainer.appendChild(thumb);
+    });
+
+    const prev = document.getElementById('modalPrev');
+    const next = document.getElementById('modalNext');
+    if (imagenesActuales.length <= 1) {
+        prev.classList.add('hidden');
+        next.classList.add('hidden');
+    } else {
+        prev.classList.remove('hidden');
+        next.classList.remove('hidden');
+    }
+
+    document.getElementById('productModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+// Cerrar Modal
+function cerrarModal(event) {
+    if (event && event.target !== event.currentTarget && !event.target.classList.contains('modal-close')) {
+        return;
+    }
+    
+    document.getElementById('productModal').classList.remove('active');
+    document.body.style.overflow = 'auto';
+    productoActual = null;
+}
+
+// Cambiar imagen con flechas
+function cambiarImagenModal(direccion) {
+    indiceImagenActual += direccion;
+    
+    if (indiceImagenActual >= imagenesActuales.length) indiceImagenActual = 0;
+    if (indiceImagenActual < 0) indiceImagenActual = imagenesActuales.length - 1;
+    
+    seleccionarImagen(indiceImagenActual);
+}
+
+// Seleccionar imagen
+function seleccionarImagen(index) {
+    indiceImagenActual = index;
+    document.getElementById('modalMainImg').src = imagenesActuales[index];
+    
+    document.querySelectorAll('.modal-thumbnail').forEach((thumb, i) => {
+        thumb.classList.toggle('active', i === index);
+    });
+}
+
+// Agregar al carrito desde modal
+async function agregarDesdeModal() {
+    if (!productoActual) return;
+    
+    const res = await fetch('/cart/add', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ productId: productoActual.id, cantidad: 1 })
+    });
+
+    if (res.ok) {
+        alert('✅ Producto agregado al carrito');
+        actualizarContador();
+        cerrarModal();
+    } else {
+        alert('❌ Error al agregar al carrito');
+    }
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') cerrarModal();
+});
+</script>
+
+<!-- ======================================================== -->
+<!-- PASO 4: REEMPLAZAR LA FUNCIÓN renderProductos EXISTENTE -->
+<!-- ======================================================== -->
+<script>
+function renderProductos(products) {
+    const contenedor = document.getElementById('products');
+    contenedor.innerHTML = '';
+
+    if (products.length === 0) {
+        contenedor.innerHTML = '<div class="empty-state">No hay productos</div>';
+        return;
+    }
+
+    products.forEach(p => {
+        const imagenes = p.galeria && p.galeria.length > 0 ? p.galeria : [p.imagen];
+        
+        let slidesHTML = '';
+        imagenes.forEach((img, index) => {
+            const activeClass = index === 0 ? 'active' : '';
+            slidesHTML += `<img src="${img}" class="carousel-slide ${activeClass}" id="img-${p.id}-${index}">`;
+        });
+
+        const botonesHTML = imagenes.length > 1 ? `
+            <a class="prev" onclick="moverSlide(event, ${p.id}, -1)">&#10094;</a>
+            <a class="next" onclick="moverSlide(event, ${p.id}, 1)">&#10095;</a>
+        ` : '';
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.cursor = 'pointer';
+        
+        // ESTO ES LO IMPORTANTE: Al hacer clic en la tarjeta, abre el modal
+        card.onclick = (e) => {
+            // No abrir modal si se hizo clic en flechas o botón
+            if (e.target.classList.contains('prev') || 
+                e.target.classList.contains('next') ||
+                e.target.classList.contains('btn-primary') || 
+                e.target.closest('.btn-primary')) {
+                return;
+            }
+            abrirModal(p);
+        };
+
+        card.innerHTML = `
+            <div class="carousel-container" id="carousel-${p.id}" data-index="0" data-total="${imagenes.length}">
+                ${slidesHTML}
+                ${botonesHTML}
+            </div>
+            <div class="card-body">
+                <h3 class="card-title">${p.nombre}</h3>
+                <p class="card-text">${p.descripcion || ''}</p>
+                <p style="color:#aaa; font-size:0.8em;">Stock: ${p.stock}</p>
+                <div class="card-footer">
+                    <span class="price-tag">$${parseFloat(p.precio).toLocaleString()}</span>
+                </div>
+                <button class="btn-primary" onclick="event.stopPropagation(); comprar(${p.id})">🛒 Agregar</button>
+            </div>
+        `;
+        contenedor.appendChild(card);
+    });
+}
+
+</script>
+
+</body>
+</html>

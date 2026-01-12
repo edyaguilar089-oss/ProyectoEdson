@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Carrito | Nova Store</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../css/styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        .cart-container {
+            max-width: 1200px;
+            margin: 140px auto 60px;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 2rem;
+        }
+
+        .cart-items-section {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        .cart-item {
+            display: grid;
+            grid-template-columns: 80px 1fr 120px 120px 80px;
+            gap: 1rem;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid #334155;
+        }
+
+        .cart-item-img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .payment-section {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 16px;
+            height: fit-content;
+            position: sticky;
+            top: 100px;
+        }
+
+        .payment-method {
+            background: #1e293b;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: 0.3s;
+        }
+
+        .payment-method:hover {
+            border-color: var(--primary);
+        }
+
+        .payment-method.selected {
+            border-color: var(--secondary);
+            background: rgba(236, 72, 153, 0.1);
+        }
+
+        .payment-method input[type="radio"] {
+            margin-right: 10px;
+        }
+
+        .add-payment-btn {
+            width: 100%;
+            padding: 12px;
+            background: transparent;
+            border: 2px dashed var(--gray-text);
+            color: var(--gray-text);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .add-payment-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .total-section {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 2px solid var(--primary);
+        }
+
+        .total-section h3 {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.5rem;
+        }
+
+        .btn-checkout {
+            width: 100%;
+            padding: 16px;
+            font-size: 1.1rem;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 1rem;
+            font-weight: 600;
+        }
+
+        .btn-checkout:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Modal de Agregar Tarjeta */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-card {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--gray-text);
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: white;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .btn-remove {
+            background: transparent;
+            border: 1px solid #ef4444;
+            color: #ef4444;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar scrolled">
+    <div class="nav-content">
+        <div class="logo">NOVA STORE</div>
+        <ul class="nav-links">
+            <li><a href="/html/cliente.html">⬅ Volver</a></li>
+            <li><a href="/auth/logout">Salir</a></li>
+        </ul>
+    </div>
+</nav>
+
+<div class="cart-container">
+    <!-- Sección de Items -->
+    <div class="cart-items-section">
+        <h2>🛒 Mi Carrito</h2>
+        <div id="cartItems"></div>
+    </div>
+
+    <!-- Sección de Pago -->
+    <div class="payment-section">
+        <h3>💳 Método de Pago</h3>
+        
+        <div id="paymentMethods"></div>
+        
+        <button class="add-payment-btn" onclick="abrirModalPago()">
+            <i class="fa-solid fa-plus"></i> Agregar Tarjeta
+        </button>
+
+        <div class="total-section">
+            <h3>
+                <span>Total:</span>
+                <span id="totalAmount">$0</span>
+            </h3>
+            <button class="btn-checkout" id="checkoutBtn" onclick="realizarCompra()" disabled>
+                Confirmar Compra
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Agregar Tarjeta -->
+<div id="paymentModal" class="modal-overlay" onclick="cerrarModalPago(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+        <h2>Agregar Método de Pago</h2>
+        
+        <div class="form-group">
+            <label>Tipo de Tarjeta</label>
+            <select id="cardType">
+                <option value="credito">Tarjeta de Crédito</option>
+                <option value="debito">Tarjeta de Débito</option>
+                <option value="paypal">PayPal</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Nombre del Titular</label>
+            <input type="text" id="cardName" placeholder="Nombre como aparece en la tarjeta">
+        </div>
+
+        <div class="form-group">
+            <label>Número de Tarjeta</label>
+            <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19">
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Fecha de Expiración</label>
+                <input type="text" id="cardExpiry" placeholder="MM/YYYY" maxlength="7">
+            </div>
+            <div class="form-group">
+                <label>CVV</label>
+                <input type="text" id="cardCVV" placeholder="123" maxlength="4">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="setPrincipal"> Establecer como método principal
+            </label>
+        </div>
+
+        <div style="display:flex; gap:1rem; margin-top:2rem;">
+            <button class="btn-primary" onclick="guardarMetodoPago()" style="flex:1;">
+                Guardar Tarjeta
+            </button>
+            <button class="btn-delete" onclick="cerrarModalPago()" style="flex:1;">
+                Cancelar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let metodoSeleccionado = null;
+let totalCompra = 0;
+
+// Cargar carrito y métodos de pago
+async function inicializar() {
+    await cargarCarrito();
+    await cargarMetodosPago();
+}
+
+async function cargarCarrito() {
+    const res = await fetch('/cart');
+    const cart = await res.json();
+
+    const contenedor = document.getElementById('cartItems');
+    contenedor.innerHTML = '';
+
+    if (!cart || cart.length === 0) {
+        contenedor.innerHTML = '<p style="text-align:center; color:var(--gray-text); padding:3rem;">Tu carrito está vacío</p>';
+        document.getElementById('totalAmount').textContent = '$0';
+        return;
+    }
+
+    totalCompra = 0;
+
+    cart.forEach(p => {
+        const subtotal = p.precio * p.cantidad;
+        totalCompra += subtotal;
+
+        contenedor.innerHTML += `
+            <div class="cart-item">
+                <img src="/img/default.png" class="cart-item-img" onerror="this.src='/img/default.png'">
+                <div>
+                    <h4>${p.nombre}</h4>
+                    <p style="color:var(--gray-text);">Cantidad: ${p.cantidad}</p>
+                </div>
+                <span>$${p.precio.toLocaleString()}</span>
+                <span style="color:var(--secondary); font-weight:bold;">$${subtotal.toLocaleString()}</span>
+                <button class="btn-remove" onclick="eliminarItem(${p.productId})">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
+        `;
+    });
+
+    document.getElementById('totalAmount').textContent = '$' + totalCompra.toLocaleString();
+    verificarBotonCompra();
+}
+
+async function cargarMetodosPago() {
+    const res = await fetch('/payments');
+    const metodos = await res.json();
+
+    const contenedor = document.getElementById('paymentMethods');
+    contenedor.innerHTML = '';
+
+    if (metodos.length === 0) {
+        contenedor.innerHTML = '<p style="color:var(--gray-text); text-align:center; padding:1rem;">No tienes métodos de pago</p>';
+        return;
+    }
+
+    metodos.forEach(m => {
+        const iconos = {
+            'credito': 'fa-credit-card',
+            'debito': 'fa-credit-card',
+            'paypal': 'fa-paypal'
+        };
+
+        const div = document.createElement('div');
+        div.className = 'payment-method' + (m.es_principal ? ' selected' : '');
+        div.onclick = () => seleccionarMetodo(m.id, div);
+
+        if (m.es_principal) metodoSeleccionado = m.id;
+
+        div.innerHTML = `
+            <input type="radio" name="payment" ${m.es_principal ? 'checked' : ''}>
+            <i class="fa-solid ${iconos[m.tipo]}"></i>
+            <strong>${m.nombre_titular}</strong>
+            <span style="color:var(--gray-text);">****${m.ultimos_digitos}</span>
+            ${m.es_principal ? '<span style="color:var(--secondary); font-size:0.8em;">(Principal)</span>' : ''}
+        `;
+
+        contenedor.appendChild(div);
+    });
+
+    verificarBotonCompra();
+}
+
+function seleccionarMetodo(id, elemento) {
+    document.querySelectorAll('.payment-method').forEach(el => el.classList.remove('selected'));
+    elemento.classList.add('selected');
+    metodoSeleccionado = id;
+    verificarBotonCompra();
+}
+
+function verificarBotonCompra() {
+    const btn = document.getElementById('checkoutBtn');
+    btn.disabled = !(metodoSeleccionado && totalCompra > 0);
+}
+
+async function realizarCompra() {
+    if (!metodoSeleccionado) {
+        alert('⚠️ Selecciona un método de pago');
+        return;
+    }
+
+    const res = await fetch('/orders/checkout', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ payment_method_id: metodoSeleccionado })
+    });
+
+    if (res.ok) {
+        alert('✅ Compra realizada con éxito');
+        location.href = '/html/cliente.html';
+    } else {
+        const error = await res.json();
+        alert('❌ Error: ' + error.error);
+    }
+}
+
+// Modal de pago
+function abrirModalPago() {
+    document.getElementById('paymentModal').classList.add('active');
+}
+
+function cerrarModalPago(event) {
+    if (event && event.target !== event.currentTarget) return;
+    document.getElementById('paymentModal').classList.remove('active');
+}
+
+async function guardarMetodoPago() {
+    const datos = {
+        tipo: document.getElementById('cardType').value,
+        nombre_titular: document.getElementById('cardName').value,
+        numero_tarjeta: document.getElementById('cardNumber').value.replace(/\s/g, ''),
+        fecha_expiracion: document.getElementById('cardExpiry').value,
+        cvv: document.getElementById('cardCVV').value,
+        es_principal: document.getElementById('setPrincipal').checked
+    };
+
+    if (!datos.nombre_titular || !datos.numero_tarjeta || !datos.fecha_expiracion || !datos.cvv) {
+        alert('⚠️ Completa todos los campos');
+        return;
+    }
+
+    const res = await fetch('/payments/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(datos)
+    });
+
+    if (res.ok) {
+        alert('✅ Tarjeta agregada');
+        cerrarModalPago();
+        cargarMetodosPago();
+    } else {
+        const error = await res.json();
+        alert('❌ Error: ' + error.error);
+    }
+}
+
+// Formato automático del número de tarjeta
+document.getElementById('cardNumber').addEventListener('input', (e) => {
+    let value = e.target.value.replace(/\s/g, '');
+    let formatted = value.match(/.{1,4}/g)?.join(' ') || value;
+    e.target.value = formatted;
+});
+
+inicializar();
+</script>
+
+</body>
+</html>

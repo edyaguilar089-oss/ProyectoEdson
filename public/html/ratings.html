@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mis Calificaciones | Nova Store</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../css/styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        .ratings-container {
+            max-width: 900px;
+            margin: 140px auto 60px;
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 16px;
+        }
+
+        .product-rating-card {
+            background: #1e293b;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            display: grid;
+            grid-template-columns: 100px 1fr auto;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .product-img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .stars-rating {
+            display: flex;
+            gap: 0.5rem;
+            font-size: 2rem;
+            cursor: pointer;
+        }
+
+        .stars-rating i {
+            color: #475569;
+            transition: 0.2s;
+        }
+
+        .stars-rating i.active {
+            color: #fbbf24;
+        }
+
+        .stars-rating i:hover,
+        .stars-rating i:hover ~ i {
+            color: #fbbf24;
+        }
+
+        .comment-box {
+            width: 100%;
+            padding: 12px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: white;
+            margin-top: 1rem;
+            resize: vertical;
+        }
+
+        .btn-submit-rating {
+            padding: 10px 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem;
+            color: var(--gray-text);
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar scrolled">
+    <div class="nav-content">
+        <div class="logo">NOVA STORE</div>
+        <ul class="nav-links">
+            <li><a href="/html/cliente.html">⬅ Volver</a></li>
+            <li><a href="/auth/logout">Salir</a></li>
+        </ul>
+    </div>
+</nav>
+
+<div class="ratings-container">
+    <h2>⭐ Califica tus Compras</h2>
+    <p style="color:var(--gray-text); margin-bottom:2rem;">Ayuda a otros compradores compartiendo tu experiencia</p>
+    
+    <div id="productosPendientes"></div>
+</div>
+
+<script>
+let ratingsData = {};
+
+async function cargarProductosPendientes() {
+    const res = await fetch('/ratings/pending');
+    const productos = await res.json();
+
+    const contenedor = document.getElementById('productosPendientes');
+    contenedor.innerHTML = '';
+
+    if (productos.length === 0) {
+        contenedor.innerHTML = `
+            <div class="empty-state">
+                <i class="fa-solid fa-check-circle" style="font-size:4rem; color:var(--primary); margin-bottom:1rem;"></i>
+                <h3>¡Todo al día!</h3>
+                <p>No tienes productos pendientes de calificar</p>
+            </div>
+        `;
+        return;
+    }
+
+    productos.forEach(p => {
+        ratingsData[p.product_id] = { order_id: p.order_id, rating: 0, comentario: '' };
+
+        const card = document.createElement('div');
+        card.className = 'product-rating-card';
+        card.innerHTML = `
+            <img src="${p.imagen}" class="product-img" onerror="this.src='/img/default.png'">
+            
+            <div>
+                <h3>${p.nombre}</h3>
+                <p style="color:var(--gray-text); font-size:0.9em;">Comprado el ${new Date(p.fecha).toLocaleDateString()}</p>
+                
+                <div class="stars-rating" id="stars-${p.product_id}">
+                    ${[1,2,3,4,5].map(n => `<i class="fa-solid fa-star" data-rating="${n}" onclick="setRating(${p.product_id}, ${n})"></i>`).join('')}
+                </div>
+
+                <textarea 
+                    class="comment-box" 
+                    placeholder="Cuéntanos tu experiencia con este producto (opcional)"
+                    onchange="ratingsData[${p.product_id}].comentario = this.value"
+                ></textarea>
+            </div>
+
+            <button class="btn-submit-rating" onclick="enviarCalificacion(${p.product_id})" id="btn-${p.product_id}" disabled>
+                Enviar
+            </button>
+        `;
+
+        contenedor.appendChild(card);
+    });
+}
+
+function setRating(productId, rating) {
+    ratingsData[productId].rating = rating;
+
+    const stars = document.querySelectorAll(`#stars-${productId} i`);
+    stars.forEach((star, index) => {
+        star.classList.toggle('active', index < rating);
+    });
+
+    document.getElementById(`btn-${productId}`).disabled = false;
+}
+
+async function enviarCalificacion(productId) {
+    const data = ratingsData[productId];
+
+    if (data.rating === 0) {
+        alert('⚠️ Selecciona una calificación');
+        return;
+    }
+
+    const res = await fetch('/ratings/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            product_id: productId,
+            order_id: data.order_id,
+            rating: data.rating,
+            comentario: data.comentario
+        })
+    });
+
+    if (res.ok) {
+        alert('✅ Calificación enviada');
+        cargarProductosPendientes();
+    } else {
+        const error = await res.json();
+        alert('❌ Error: ' + error.error);
+    }
+}
+
+cargarProductosPendientes();
+</script>
+
+</body>
+</html>

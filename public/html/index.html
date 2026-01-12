@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova Store | Electrónica</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+
+    <nav class="navbar" id="navbar">
+        <div class="nav-content">
+            <div class="logo">NOVA STORE</div>
+            <ul class="nav-links">
+                <li><a href="#hero">Inicio</a></li>
+                <li><a href="#servicios">Productos</a></li>
+                <li><a href="#contacto">Contacto</a></li>
+                <!-- 🔐 LOGIN -->
+                <li><a href="/html/login.html" class="btn-nav">Login</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <header id="hero" class="hero-section">
+        <div class="hero-content">
+            <h1>
+                Tu tienda de <span class="highlight">Tecnología</span> en un solo lugar
+            </h1>
+            <p>
+                En Nova Store encontrarás smartphones, audífonos, accesorios y los mejores
+                dispositivos electrónicos con calidad, seguridad y precios competitivos.
+            </p>
+            <div class="hero-btns">
+                <button class="btn-primary">Explorar Productos</button>
+                <button class="btn-secondary">Ver Ofertas</button>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="placeholder-box">SMARTPHONES · AUDÍFONOS · GADGETS</div>
+        </div>
+    </header>
+
+    <section id="servicios" class="services-section">
+        <div class="section-header">
+            <h2>Nuestros Productos</h2>
+            <p>
+                Contamos con una amplia variedad de dispositivos electrónicos para cubrir
+                todas tus necesidades tecnológicas.
+            </p>
+        </div>
+        
+        <div class="cards-grid">
+            <div class="card">
+                <span class="material-icons-outlined icon">smartphone</span>
+                <h3>Smartphones</h3>
+                <p>
+                    Los últimos modelos con alto rendimiento, cámaras avanzadas
+                    y diseños modernos.
+                </p>
+            </div>
+            <div class="card">
+                <span class="material-icons-outlined icon">headphones</span>
+                <h3>Audífonos</h3>
+                <p>
+                    Audífonos inalámbricos y con cable, ideales para música,
+                    trabajo y gaming.
+                </p>
+            </div>
+            <div class="card">
+                <span class="material-icons-outlined icon">devices</span>
+                <h3>Accesorios</h3>
+                <p>
+                    Cargadores, fundas, cables y accesorios compatibles con
+                    tus dispositivos.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <footer id="contacto" class="footer-section">
+        <div class="footer-content">
+            <h2>Compra fácil, rápida y segura</h2>
+            <p>
+                Regístrate o inicia sesión para comenzar a comprar en Nova Store.
+            </p>
+            <form class="simple-form" onsubmit="event.preventDefault()">
+                <input type="email" placeholder="Tu correo electrónico" required>
+                <button type="submit">Suscribirme</button>
+            </form>
+        </div>
+        <div class="copyright">
+            <p>&copy; 2025 Nova Store. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="../js/app.js"></script>
+</body>
+</html>
